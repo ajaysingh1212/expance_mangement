@@ -25,6 +25,9 @@
             @can('finance.bank.create')
             <button class="btn btn-light btn-sm mr-1 mb-1" data-toggle="modal" data-target="#bankModal"><i class="fas fa-building-columns mr-1"></i> Bank</button>
             @endcan
+            @can('finance.bank.index')
+            <a class="btn btn-info btn-sm mr-1 mb-1" href="{{ route('admin.finance.statement.index') }}"><i class="fas fa-file-lines mr-1"></i> Statement</a>
+            @endcan
             @can('finance.cashflows.create')
             <button class="btn btn-success btn-sm mr-1 mb-1" data-toggle="modal" data-target="#cashflowModal"><i class="fas fa-arrow-trend-up mr-1"></i> Cash In</button>
             @endcan
@@ -81,6 +84,9 @@
                                     <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal{{ $expense->id }}"><i class="fas fa-money-bill-wave"></i></button>
                                     @endif
                                     @endcan
+                                    @can('finance.expenses.show')
+                                    <a href="{{ route('admin.finance.expenses.invoice', $expense) }}" target="_blank" class="btn btn-sm btn-outline-dark"><i class="fas fa-file-invoice"></i></a>
+                                    @endcan
                                     @can('finance.expenses.edit')
                                     @if(!in_array($expense->status, ['paid', 'deferred']))
                                     <form action="{{ route('admin.finance.expenses.defer', $expense) }}" method="POST" class="d-inline">@csrf<button class="btn btn-sm btn-outline-secondary"><i class="fas fa-clock"></i></button></form>
@@ -110,6 +116,56 @@
 </div>
 
 <div class="row">
+    <div class="col-xl-4 mb-4">
+        <div class="card h-100" style="border-left:4px solid #2563eb;">
+            <div class="card-header"><h3><i class="fas fa-circle-check mr-2 text-primary"></i>Confirm Inflow</h3></div>
+            <div class="card-body">
+                @forelse($awaitingReceipts as $cashflow)
+                <form action="{{ route('admin.finance.cashflows.receive', $cashflow) }}" method="POST" class="mb-3 pb-3" style="border-bottom:1px solid #eef2f7;">
+                    @csrf
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ $cashflow->title }}</strong>
+                        <span>{{ $money($cashflow->expected_amount) }}</span>
+                    </div>
+                    <div class="text-muted small mb-2">{{ $cashflow->bankAccount?->name }} · Expected {{ $cashflow->expected_date?->format('d M Y') }}</div>
+                    <div class="input-group input-group-sm">
+                        <input type="date" name="received_date" class="form-control" value="{{ now()->toDateString() }}" required>
+                        <input type="text" name="reference_no" class="form-control" placeholder="Ref no">
+                        @can('finance.approve')
+                        <div class="input-group-append"><button class="btn btn-success"><i class="fas fa-check"></i></button></div>
+                        @endcan
+                    </div>
+                </form>
+                @empty
+                <div class="text-center text-muted py-4">No approved inflow waiting for confirmation.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4 mb-4">
+        <div class="card h-100" style="border-left:4px solid #0f766e;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3><i class="fas fa-file-lines mr-2 text-success"></i>Latest Bank Statement</h3>
+                @can('finance.bank.index')<a href="{{ route('admin.finance.statement.index') }}" class="btn btn-sm btn-outline-success">Full</a>@endcan
+            </div>
+            <div class="card-body">
+                @forelse($recentTransactions as $transaction)
+                <div class="d-flex justify-content-between align-items-start mb-3 pb-3" style="border-bottom:1px solid #eef2f7;">
+                    <div>
+                        <strong>{{ $transaction->party_name ?: $transaction->description }}</strong>
+                        <div class="text-muted small">{{ $transaction->bankAccount?->name }} · {{ $transaction->transaction_date?->format('d M Y') }}</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-weight-bold text-{{ $transaction->direction === 'credit' ? 'success' : 'danger' }}">{{ $transaction->direction === 'credit' ? '+' : '-' }}{{ $money($transaction->amount) }}</span>
+                        <div class="text-muted small">Bal {{ $money($transaction->balance_after) }}</div>
+                    </div>
+                </div>
+                @empty
+                <div class="text-center text-muted py-4">No bank transactions posted yet.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
     <div class="col-lg-4 mb-4">
         <div class="card h-100">
             <div class="card-header"><h3><i class="fas fa-building-columns mr-2 text-success"></i>Bank & Cash</h3></div>

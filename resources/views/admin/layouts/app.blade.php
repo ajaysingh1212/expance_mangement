@@ -367,6 +367,12 @@
                             <p>Bank & Cash</p>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="{{ route('admin.finance.statement.index') }}" class="nav-link {{ request()->routeIs('admin.finance.statement.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-file-lines"></i>
+                            <p>Bank Statement</p>
+                        </a>
+                    </li>
                     @endcan
                     @can('finance.cashflows.index')
                     <li class="nav-item">

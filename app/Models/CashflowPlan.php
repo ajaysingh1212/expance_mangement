@@ -13,7 +13,8 @@ class CashflowPlan extends Model
 
     protected $fillable = [
         'ledger_id', 'bank_account_id', 'title', 'expected_amount',
-        'expected_date', 'status', 'attachment_path', 'notes',
+        'receipt_no', 'payer_name', 'reference_no', 'expected_date',
+        'received_date', 'status', 'attachment_path', 'notes',
         'approved_by', 'approved_at', 'created_by',
     ];
 
@@ -22,6 +23,7 @@ class CashflowPlan extends Model
         return [
             'expected_amount' => 'decimal:2',
             'expected_date' => 'date',
+            'received_date' => 'date',
             'approved_at' => 'datetime',
         ];
     }
@@ -39,5 +41,10 @@ class CashflowPlan extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function transaction()
+    {
+        return $this->morphOne(BankTransaction::class, 'transactionable');
     }
 }

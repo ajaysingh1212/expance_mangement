@@ -17,14 +17,14 @@
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table mb-0">
-                <thead><tr><th>Expense</th><th>Ledger</th><th>Month/Due</th><th>Planned</th><th>Paid</th><th>Balance</th><th>Status</th><th>Attachment</th><th></th></tr></thead>
+                <thead><tr><th>Invoice</th><th>Ledger</th><th>Month/Due</th><th>Net</th><th>Paid</th><th>Balance</th><th>Status</th><th>Attachment</th><th></th></tr></thead>
                 <tbody>
                 @forelse($expenses as $expense)
                 <tr>
-                    <td><strong>{{ $expense->title }}</strong><div class="text-muted small">{{ $expense->category }} · {{ $expense->priority }}</div></td>
+                    <td><strong>{{ $expense->title }}</strong><div class="text-muted small">{{ $expense->invoice_no }} · {{ $expense->vendor_name ?: $expense->category }} · {{ $expense->priority }}</div></td>
                     <td>{{ $expense->ledger?->name }}</td>
                     <td>{{ $expense->expense_month ?: '-' }}<div class="text-muted small">{{ $expense->due_date?->format('d M Y') ?: 'No due date' }}</div></td>
-                    <td>{{ $money($expense->planned_amount) }}</td>
+                    <td>{{ $money($expense->net_amount ?: $expense->planned_amount) }}</td>
                     <td>{{ $money($expense->paid_amount) }}</td>
                     <td><strong>{{ $money($expense->remaining_amount) }}</strong></td>
                     <td><span class="badge badge-{{ match($expense->status) {'paid'=>'success','partial'=>'warning','approved'=>'info','deferred'=>'secondary','rejected'=>'danger',default=>'light'} }}">{{ ucfirst($expense->status) }}</span></td>
@@ -32,6 +32,7 @@
                     <td class="text-right">
                         @can('finance.approve')@if(in_array($expense->status, ['submitted', 'draft', 'deferred']))<form action="{{ route('admin.finance.expenses.approve', $expense) }}" method="POST" class="d-inline">@csrf<button class="btn btn-sm btn-success"><i class="fas fa-check"></i></button></form>@endif@endcan
                         @can('finance.payments.create')@if(in_array($expense->status, ['approved', 'partial']) && $expense->remaining_amount > 0)<button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal{{ $expense->id }}"><i class="fas fa-money-bill-wave"></i></button>@endif@endcan
+                        @can('finance.expenses.show')<a href="{{ route('admin.finance.expenses.invoice', $expense) }}" target="_blank" class="btn btn-sm btn-outline-dark"><i class="fas fa-file-invoice"></i></a>@endcan
                     </td>
                 </tr>
                 @empty

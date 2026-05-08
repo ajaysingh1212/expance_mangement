@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\BankAccount;
+use App\Models\BankTransaction;
 use App\Models\CashflowPlan;
 use App\Models\ExpensePayment;
 use App\Models\ExpensePlan;
@@ -66,25 +67,27 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
         $cashflowPlans = CashflowPlan::with(['ledger', 'bankAccount'])
-            ->whereIn('status', ['submitted', 'draft'])
+            ->whereIn('status', ['submitted', 'draft', 'approved'])
             ->orderBy('expected_date')
             ->take(8)
             ->get();
 
         $financeStats = [
             'bank_balance' => BankAccount::sum('current_balance'),
-            'planned_income' => CashflowPlan::whereIn('status', ['draft', 'submitted'])->sum('expected_amount'),
-            'planned_expense' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])->sum('planned_amount'),
+            'planned_income' => CashflowPlan::whereIn('status', ['draft', 'submitted', 'approved'])->sum('expected_amount'),
+            'planned_expense' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+                ->selectRaw('COALESCE(SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END), 0) as total')
+                ->value('total') ?? 0,
             'outstanding' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
-                ->selectRaw('COALESCE(SUM(planned_amount - paid_amount), 0) as total')
+                ->selectRaw('COALESCE(SUM((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount), 0) as total')
                 ->value('total') ?? 0,
             'salary_due' => ExpensePlan::whereHas('ledger', fn ($q) => $q->where('type', 'salary'))
                 ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
-                ->selectRaw('COALESCE(SUM(planned_amount - paid_amount), 0) as total')
+                ->selectRaw('COALESCE(SUM((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount), 0) as total')
                 ->value('total') ?? 0,
         ];
 
-        $monthlyExpense = ExpensePlan::selectRaw('expense_month as month_key, SUM(planned_amount) as total')
+        $monthlyExpense = ExpensePlan::selectRaw('expense_month as month_key, SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) as total')
             ->whereNotNull('expense_month')
             ->groupBy('month_key')
             ->orderBy('month_key')
@@ -95,9 +98,19 @@ class DashboardController extends Controller
             ->pluck('total', 'status');
         $affordableExpenses = ExpensePlan::with('ledger')
             ->whereIn('status', ['approved', 'partial'])
-            ->whereRaw('(planned_amount - paid_amount) <= ?', [max(0, $financeStats['bank_balance'])])
+            ->whereRaw('((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount) <= ?', [max(0, $financeStats['bank_balance'])])
             ->orderBy('due_date')
             ->take(5)
+            ->get();
+        $recentTransactions = BankTransaction::with('bankAccount')
+            ->latest('transaction_date')
+            ->latest()
+            ->take(8)
+            ->get();
+        $awaitingReceipts = CashflowPlan::with(['ledger', 'bankAccount'])
+            ->where('status', 'approved')
+            ->orderBy('expected_date')
+            ->take(8)
             ->get();
 
         return view('admin.dashboard.index', compact(
@@ -114,7 +127,9 @@ class DashboardController extends Controller
             'financeStats',
             'monthlyExpense',
             'expenseByStatus',
-            'affordableExpenses'
+            'affordableExpenses',
+            'recentTransactions',
+            'awaitingReceipts'
         ));
     }
 }

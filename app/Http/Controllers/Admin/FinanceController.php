@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\BankAccount;
+use App\Models\BankTransaction;
 use App\Models\CashflowPlan;
 use App\Models\ExpensePayment;
 use App\Models\ExpensePlan;
 use App\Models\Ledger;
+use App\Models\User;
+use App\Models\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -66,9 +69,49 @@ class FinanceController extends Controller
             'current_balance' => $data['opening_balance'],
             'created_by' => $request->user()->id,
         ]);
+
+        if ((float) $account->opening_balance > 0) {
+            $this->recordBankTransaction(
+                $account,
+                null,
+                'credit',
+                (float) $account->opening_balance,
+                now()->toDateString(),
+                'Opening Balance',
+                'OPENING',
+                'Opening Balance',
+                'Initial bank/cash balance',
+                $request->user()->id
+            );
+        }
+
         ActivityLog::log('created', "Created bank account: {$account->name}", $account);
 
         return back()->with('success', 'Bank account created successfully.');
+    }
+
+    public function statement(Request $request)
+    {
+        $bankAccounts = BankAccount::where('status', 'active')->orderBy('name')->get();
+        $selectedAccount = $request->integer('bank_account_id');
+        $from = $request->date('from');
+        $to = $request->date('to');
+
+        $transactions = BankTransaction::with('bankAccount')
+            ->when($selectedAccount, fn ($q) => $q->where('bank_account_id', $selectedAccount))
+            ->when($from, fn ($q) => $q->whereDate('transaction_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('transaction_date', '<=', $to))
+            ->latest('transaction_date')
+            ->latest()
+            ->paginate(30)
+            ->withQueryString();
+
+        $summary = [
+            'credit' => (clone $transactions->getCollection())->where('direction', 'credit')->sum('amount'),
+            'debit' => (clone $transactions->getCollection())->where('direction', 'debit')->sum('amount'),
+        ];
+
+        return view('admin.finance.statement', compact('bankAccounts', 'transactions', 'summary'));
     }
 
     public function cashflows()
@@ -86,6 +129,8 @@ class FinanceController extends Controller
             'ledger_id' => ['nullable', 'exists:ledgers,id'],
             'bank_account_id' => ['required', 'exists:bank_accounts,id'],
             'title' => ['required', 'string', 'max:180'],
+            'payer_name' => ['nullable', 'string', 'max:150'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
             'expected_amount' => ['required', 'numeric', 'min:1'],
             'expected_date' => ['required', 'date'],
             'status' => ['required', Rule::in(['draft', 'submitted'])],
@@ -96,8 +141,18 @@ class FinanceController extends Controller
         $data['attachment_path'] = $this->storeAttachment($request);
         unset($data['attachment']);
 
-        $cashflow = CashflowPlan::create($data + ['created_by' => $request->user()->id]);
+        $cashflow = CashflowPlan::create($data + [
+            'receipt_no' => $this->nextDocumentNumber('RCPT'),
+            'created_by' => $request->user()->id,
+        ]);
         ActivityLog::log('created', "Created cashflow plan: {$cashflow->title}", $cashflow);
+        $this->notifyFinanceApprovers(
+            'Cashflow approval needed',
+            "{$cashflow->title} expected inflow needs approval.",
+            route('admin.dashboard'),
+            'success',
+            'fas fa-arrow-trend-up'
+        );
 
         return back()->with('success', 'Cashflow plan saved.');
     }
@@ -107,21 +162,60 @@ class FinanceController extends Controller
         abort_unless($request->user()->can('finance.approve'), 403);
 
         if (in_array($cashflow->status, ['approved', 'received'], true)) {
-            return back()->with('success', 'Cashflow is already posted.');
+            return back()->with('success', 'Cashflow is already approved.');
         }
 
-        DB::transaction(function () use ($request, $cashflow) {
+        $cashflow->update([
+            'status' => 'approved',
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+        ]);
+        ActivityLog::log('approved', "Approved cashflow: {$cashflow->title}", $cashflow);
+
+        return back()->with('success', 'Cashflow approved. Confirm receipt when money arrives.');
+    }
+
+    public function receiveCashflow(Request $request, CashflowPlan $cashflow)
+    {
+        abort_unless($request->user()->can('finance.approve'), 403);
+
+        $data = $request->validate([
+            'received_date' => ['required', 'date'],
+            'reference_no' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        if ($cashflow->status !== 'approved') {
+            return back()->with('error', 'Only approved cashflow can be received.');
+        }
+
+        DB::transaction(function () use ($request, $cashflow, $data) {
             $account = BankAccount::lockForUpdate()->findOrFail($cashflow->bank_account_id);
             $account->increment('current_balance', $cashflow->expected_amount);
+            $account->refresh();
+
             $cashflow->update([
                 'status' => 'received',
-                'approved_by' => $request->user()->id,
-                'approved_at' => now(),
+                'received_date' => $data['received_date'],
+                'reference_no' => $data['reference_no'] ?? $cashflow->reference_no,
             ]);
-            ActivityLog::log('approved', "Approved cashflow: {$cashflow->title}", $cashflow);
+
+            $this->recordBankTransaction(
+                $account,
+                $cashflow,
+                'credit',
+                (float) $cashflow->expected_amount,
+                $data['received_date'],
+                $cashflow->payer_name ?: $cashflow->ledger?->name,
+                $data['reference_no'] ?? $cashflow->reference_no,
+                'Cash Inflow',
+                $cashflow->title,
+                $request->user()->id
+            );
+
+            ActivityLog::log('received', "Received cashflow: {$cashflow->title}", $cashflow);
         });
 
-        return back()->with('success', 'Cashflow approved and bank balance increased.');
+        return back()->with('success', 'Cash received and bank statement updated.');
     }
 
     public function expenses()
@@ -140,7 +234,12 @@ class FinanceController extends Controller
             'bank_account_id' => ['nullable', 'exists:bank_accounts,id'],
             'title' => ['required', 'string', 'max:180'],
             'category' => ['nullable', 'string', 'max:100'],
+            'vendor_name' => ['nullable', 'string', 'max:150'],
+            'vendor_gstin' => ['nullable', 'string', 'max:30'],
+            'payment_terms' => ['nullable', 'string', 'max:120'],
             'planned_amount' => ['required', 'numeric', 'min:1'],
+            'tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'due_date' => ['nullable', 'date'],
             'expense_month' => ['nullable', 'date_format:Y-m'],
             'priority' => ['required', Rule::in(['low', 'normal', 'high', 'urgent'])],
@@ -150,12 +249,32 @@ class FinanceController extends Controller
         ]);
 
         $data['attachment_path'] = $this->storeAttachment($request);
+        $data['tax_amount'] = $data['tax_amount'] ?? 0;
+        $data['discount_amount'] = $data['discount_amount'] ?? 0;
+        $data['net_amount'] = ((float) $data['planned_amount'] + (float) $data['tax_amount']) - (float) $data['discount_amount'];
         unset($data['attachment']);
 
-        $expense = ExpensePlan::create($data + ['created_by' => $request->user()->id]);
+        $expense = ExpensePlan::create($data + [
+            'invoice_no' => $this->nextDocumentNumber('INV'),
+            'created_by' => $request->user()->id,
+        ]);
         ActivityLog::log('created', "Created expense plan: {$expense->title}", $expense);
+        $this->notifyFinanceApprovers(
+            'Expense approval needed',
+            "{$expense->title} for Rs " . number_format((float) $expense->net_amount, 2) . ' needs approval.',
+            route('admin.dashboard'),
+            'warning',
+            'fas fa-receipt'
+        );
 
         return back()->with('success', 'Expense plan saved.');
+    }
+
+    public function invoice(ExpensePlan $expense)
+    {
+        $expense->load(['ledger', 'bankAccount', 'payments.bankAccount']);
+
+        return view('admin.finance.invoice', compact('expense'));
     }
 
     public function approveExpense(Request $request, ExpensePlan $expense)
@@ -227,6 +346,7 @@ class FinanceController extends Controller
             }
 
             $account->decrement('current_balance', $payment->amount);
+            $account->refresh();
             $payment->update([
                 'status' => 'approved',
                 'approved_by' => $request->user()->id,
@@ -237,6 +357,19 @@ class FinanceController extends Controller
             $expense->increment('paid_amount', $payment->amount);
             $expense->refresh();
             $expense->update(['status' => $expense->remaining_amount <= 0 ? 'paid' : 'partial']);
+
+            $this->recordBankTransaction(
+                $account,
+                $payment,
+                'debit',
+                (float) $payment->amount,
+                $payment->payment_date,
+                $expense->vendor_name ?: $expense->ledger?->name,
+                $payment->reference_no,
+                $expense->category ?: $expense->ledger?->type,
+                $expense->title,
+                $request->user()->id
+            );
 
             ActivityLog::log('approved', "Approved payment for: {$expense->title}", $payment);
         });
@@ -251,5 +384,53 @@ class FinanceController extends Controller
         }
 
         return $request->file('attachment')->store('finance/attachments', 'public');
+    }
+
+    private function recordBankTransaction(
+        BankAccount $account,
+        mixed $source,
+        string $direction,
+        float $amount,
+        string $date,
+        ?string $party,
+        ?string $reference,
+        ?string $category,
+        ?string $description,
+        ?int $userId
+    ): BankTransaction {
+        return BankTransaction::create([
+            'bank_account_id' => $account->id,
+            'transactionable_type' => $source ? get_class($source) : null,
+            'transactionable_id' => $source?->id,
+            'transaction_no' => $this->nextDocumentNumber('TXN'),
+            'transaction_date' => $date,
+            'direction' => $direction,
+            'amount' => $amount,
+            'balance_after' => $account->current_balance,
+            'party_name' => $party,
+            'reference_no' => $reference,
+            'category' => $category,
+            'description' => $description,
+            'created_by' => $userId,
+        ]);
+    }
+
+    private function nextDocumentNumber(string $prefix): string
+    {
+        return $prefix . '-' . now()->format('Ymd') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    private function notifyFinanceApprovers(string $title, string $message, string $link, string $type, string $icon): void
+    {
+        User::permission('finance.approve')->get()->each(function (User $user) use ($title, $message, $link, $type, $icon) {
+            UserNotification::create([
+                'user_id' => $user->id,
+                'title' => $title,
+                'message' => $message,
+                'type' => $type,
+                'icon' => $icon,
+                'link' => $link,
+            ]);
+        });
     }
 }

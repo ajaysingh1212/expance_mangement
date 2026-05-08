@@ -39,13 +39,15 @@
         <div class="modal-header"><h5 class="modal-title">Plan Cash Inflow</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
         <div class="modal-body">
             <div class="row">
-                <div class="col-md-6 form-group"><label>Title</label><input name="title" class="form-control" required></div>
-                <div class="col-md-6 form-group"><label>Source Ledger</label><select name="ledger_id" class="form-control"><option value="">Direct / Other</option>@foreach($incomeLedgers ?? [] as $ledger)<option value="{{ $ledger->id }}">{{ $ledger->name }}</option>@endforeach</select></div>
+                <div class="col-md-5 form-group"><label>Title</label><input name="title" class="form-control" required></div>
+                <div class="col-md-4 form-group"><label>Source Ledger</label><select name="ledger_id" class="form-control"><option value="">Direct / Other</option>@foreach($incomeLedgers ?? [] as $ledger)<option value="{{ $ledger->id }}">{{ $ledger->name }}</option>@endforeach</select></div>
+                <div class="col-md-3 form-group"><label>Payer Name</label><input name="payer_name" class="form-control"></div>
                 <div class="col-md-4 form-group"><label>Bank Account</label><select name="bank_account_id" class="form-control" required>@foreach($bankAccounts ?? [] as $account)<option value="{{ $account->id }}">{{ $account->name }} ({{ $money($account->current_balance) }})</option>@endforeach</select></div>
                 <div class="col-md-4 form-group"><label>Expected Amount</label><input name="expected_amount" type="number" min="1" step="0.01" class="form-control live-money" required></div>
                 <div class="col-md-4 form-group"><label>Expected Date</label><input name="expected_date" type="date" class="form-control" required></div>
+                <div class="col-md-4 form-group"><label>Reference No.</label><input name="reference_no" class="form-control"></div>
                 <div class="col-md-4 form-group"><label>Status</label><select name="status" class="form-control"><option value="submitted">Submit for Approval</option><option value="draft">Draft</option></select></div>
-                <div class="col-md-8 form-group"><label>Attachment</label><input name="attachment" type="file" class="form-control attachment-input" accept=".jpg,.jpeg,.png,.pdf,.webp"><div class="attachment-preview mt-2"></div></div>
+                <div class="col-md-4 form-group"><label>Attachment</label><input name="attachment" type="file" class="form-control attachment-input" accept=".jpg,.jpeg,.png,.pdf,.webp"><div class="attachment-preview mt-2"></div></div>
                 <div class="col-12 form-group"><label>Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
             </div>
         </div>
@@ -58,13 +60,19 @@
         <div class="modal-header"><h5 class="modal-title">Plan Expense / Salary</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
         <div class="modal-body">
             <div class="row">
-                <div class="col-md-5 form-group"><label>Title</label><input name="title" class="form-control" required placeholder="May salary - Ajay"></div>
+                <div class="col-md-4 form-group"><label>Title</label><input name="title" class="form-control" required placeholder="May salary - Ajay"></div>
                 <div class="col-md-4 form-group"><label>Ledger</label><select name="ledger_id" class="form-control ledger-amount-source" required><option value="">Select</option>@foreach($expenseLedgers ?? [] as $ledger)<option value="{{ $ledger->id }}" data-amount="{{ $ledger->default_amount }}">{{ $ledger->name }} · {{ ucfirst($ledger->type) }}</option>@endforeach</select></div>
+                <div class="col-md-4 form-group"><label>Vendor / Employee</label><input name="vendor_name" class="form-control" placeholder="Party name"></div>
                 <div class="col-md-3 form-group"><label>Category</label><input name="category" class="form-control" placeholder="Salary, Rent, Utility"></div>
-                <div class="col-md-3 form-group"><label>Planned Amount</label><input name="planned_amount" type="number" min="1" step="0.01" class="form-control live-money planned-amount" required></div>
+                <div class="col-md-3 form-group"><label>Base Amount</label><input name="planned_amount" type="number" min="1" step="0.01" class="form-control live-money planned-amount calc-net" required></div>
+                <div class="col-md-2 form-group"><label>Tax</label><input name="tax_amount" type="number" min="0" step="0.01" class="form-control calc-net" value="0"></div>
+                <div class="col-md-2 form-group"><label>Discount</label><input name="discount_amount" type="number" min="0" step="0.01" class="form-control calc-net" value="0"></div>
+                <div class="col-md-2 form-group"><label>Net</label><input class="form-control net-preview" readonly value="0.00"></div>
                 <div class="col-md-3 form-group"><label>Expense Month</label><input name="expense_month" type="month" class="form-control" value="{{ now()->format('Y-m') }}"></div>
                 <div class="col-md-3 form-group"><label>Due Date</label><input name="due_date" type="date" class="form-control"></div>
                 <div class="col-md-3 form-group"><label>Priority</label><select name="priority" class="form-control"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select></div>
+                <div class="col-md-3 form-group"><label>Payment Terms</label><input name="payment_terms" class="form-control" placeholder="Net 7 / Immediate"></div>
+                <div class="col-md-3 form-group"><label>GSTIN</label><input name="vendor_gstin" class="form-control"></div>
                 <div class="col-md-4 form-group"><label>Preferred Bank</label><select name="bank_account_id" class="form-control"><option value="">Decide while paying</option>@foreach($bankAccounts ?? [] as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
                 <div class="col-md-3 form-group"><label>Status</label><select name="status" class="form-control"><option value="submitted">Submit for Approval</option><option value="draft">Draft</option></select></div>
                 <div class="col-md-5 form-group"><label>Attachment</label><input name="attachment" type="file" class="form-control attachment-input" accept=".jpg,.jpeg,.png,.pdf,.webp"><div class="attachment-preview mt-2"></div></div>
@@ -95,6 +103,19 @@ document.querySelectorAll('.ledger-amount-source').forEach(select => {
             target.value = amount;
             target.dispatchEvent(new Event('input'));
         }
+    });
+});
+document.querySelectorAll('.calc-net').forEach(input => {
+    input.addEventListener('input', () => {
+        const form = input.closest('form');
+        const base = Number(form.querySelector('[name="planned_amount"]')?.value || 0);
+        const tax = Number(form.querySelector('[name="tax_amount"]')?.value || 0);
+        const discount = Number(form.querySelector('[name="discount_amount"]')?.value || 0);
+        const net = Math.max(0, base + tax - discount);
+        const target = form.querySelector('.net-preview');
+        if (target) target.value = net.toFixed(2);
+        const preview = form.querySelector('.live-preview');
+        if (preview) preview.textContent = 'Net payable: ' + formatMoney(net);
     });
 });
 document.querySelectorAll('.attachment-input').forEach(input => {

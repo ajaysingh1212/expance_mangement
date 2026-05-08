@@ -35,4 +35,9 @@ class ExpensePayment extends Model
     {
         return $this->belongsTo(BankAccount::class);
     }
+
+    public function transaction()
+    {
+        return $this->morphOne(BankTransaction::class, 'transactionable');
+    }
 }

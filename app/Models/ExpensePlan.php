@@ -13,8 +13,10 @@ class ExpensePlan extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'ledger_id', 'bank_account_id', 'title', 'category', 'planned_amount',
-        'paid_amount', 'due_date', 'expense_month', 'priority', 'status',
+        'ledger_id', 'bank_account_id', 'title', 'invoice_no', 'category',
+        'vendor_name', 'vendor_gstin', 'payment_terms', 'planned_amount',
+        'tax_amount', 'discount_amount', 'net_amount', 'paid_amount',
+        'due_date', 'expense_month', 'priority', 'status',
         'attachment_path', 'notes', 'approved_by', 'approved_at', 'created_by',
     ];
 
@@ -22,6 +24,9 @@ class ExpensePlan extends Model
     {
         return [
             'planned_amount' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'net_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'due_date' => 'date',
             'approved_at' => 'datetime',
@@ -43,8 +48,15 @@ class ExpensePlan extends Model
         return $this->hasMany(ExpensePayment::class);
     }
 
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function getRemainingAmountAttribute(): float
     {
-        return max(0, (float) $this->planned_amount - (float) $this->paid_amount);
+        $payable = (float) ($this->net_amount ?: $this->planned_amount);
+
+        return max(0, $payable - (float) $this->paid_amount);
     }
 }
