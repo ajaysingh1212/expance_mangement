@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\ItemController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProfileController;
@@ -75,6 +76,26 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user'])->gro
         Route::get('/{permission}/edit', [PermissionController::class, 'edit'])->name('edit')->middleware('can:permissions.edit');
         Route::put('/{permission}', [PermissionController::class, 'update'])->name('update')->middleware('can:permissions.edit');
         Route::delete('/{permission}', [PermissionController::class, 'destroy'])->name('destroy')->middleware('can:permissions.delete');
+    });
+
+    // Finance Management
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('/ledgers', [FinanceController::class, 'ledgers'])->name('ledgers.index')->middleware('can:finance.ledgers.index');
+        Route::post('/ledgers', [FinanceController::class, 'storeLedger'])->name('ledgers.store')->middleware('can:finance.ledgers.create');
+
+        Route::get('/bank-accounts', [FinanceController::class, 'bankAccounts'])->name('bank-accounts.index')->middleware('can:finance.bank.index');
+        Route::post('/bank-accounts', [FinanceController::class, 'storeBankAccount'])->name('bank-accounts.store')->middleware('can:finance.bank.create');
+
+        Route::get('/cashflows', [FinanceController::class, 'cashflows'])->name('cashflows.index')->middleware('can:finance.cashflows.index');
+        Route::post('/cashflows', [FinanceController::class, 'storeCashflow'])->name('cashflows.store')->middleware('can:finance.cashflows.create');
+        Route::post('/cashflows/{cashflow}/approve', [FinanceController::class, 'approveCashflow'])->name('cashflows.approve')->middleware('can:finance.approve');
+
+        Route::get('/expenses', [FinanceController::class, 'expenses'])->name('expenses.index')->middleware('can:finance.expenses.index');
+        Route::post('/expenses', [FinanceController::class, 'storeExpense'])->name('expenses.store')->middleware('can:finance.expenses.create');
+        Route::post('/expenses/{expense}/approve', [FinanceController::class, 'approveExpense'])->name('expenses.approve')->middleware('can:finance.approve');
+        Route::post('/expenses/{expense}/defer', [FinanceController::class, 'deferExpense'])->name('expenses.defer')->middleware('can:finance.expenses.edit');
+        Route::post('/expenses/{expense}/payments', [FinanceController::class, 'storePayment'])->name('expenses.payments.store')->middleware('can:finance.payments.create');
+        Route::post('/payments/{payment}/approve', [FinanceController::class, 'approvePayment'])->name('payments.approve')->middleware('can:finance.approve');
     });
 
     // Items Module (gate-protected, RBAC demo)

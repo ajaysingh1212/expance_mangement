@@ -4,7 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\BankAccount;
+use App\Models\CashflowPlan;
+use App\Models\ExpensePayment;
+use App\Models\ExpensePlan;
 use App\Models\Item;
+use App\Models\Ledger;
 use App\Models\User;
 use App\Models\UserNotification;
 use Spatie\Permission\Models\Role;
@@ -45,6 +50,71 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return view('admin.dashboard.index', compact('stats', 'recentActivity', 'recentItems'));
+        $bankAccounts = BankAccount::where('status', 'active')->latest()->get();
+        $ledgers = Ledger::where('status', 'active')->orderBy('name')->get();
+        $expenseLedgers = $ledgers->whereIn('type', ['expense', 'salary', 'vendor', 'other']);
+        $incomeLedgers = $ledgers->whereIn('type', ['income', 'customer', 'other']);
+        $expensePlans = ExpensePlan::with(['ledger', 'bankAccount'])
+            ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END")
+            ->orderBy('due_date')
+            ->take(12)
+            ->get();
+        $pendingPayments = ExpensePayment::with(['expensePlan.ledger', 'bankAccount'])
+            ->where('status', 'submitted')
+            ->latest()
+            ->take(8)
+            ->get();
+        $cashflowPlans = CashflowPlan::with(['ledger', 'bankAccount'])
+            ->whereIn('status', ['submitted', 'draft'])
+            ->orderBy('expected_date')
+            ->take(8)
+            ->get();
+
+        $financeStats = [
+            'bank_balance' => BankAccount::sum('current_balance'),
+            'planned_income' => CashflowPlan::whereIn('status', ['draft', 'submitted'])->sum('expected_amount'),
+            'planned_expense' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])->sum('planned_amount'),
+            'outstanding' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+                ->selectRaw('COALESCE(SUM(planned_amount - paid_amount), 0) as total')
+                ->value('total') ?? 0,
+            'salary_due' => ExpensePlan::whereHas('ledger', fn ($q) => $q->where('type', 'salary'))
+                ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+                ->selectRaw('COALESCE(SUM(planned_amount - paid_amount), 0) as total')
+                ->value('total') ?? 0,
+        ];
+
+        $monthlyExpense = ExpensePlan::selectRaw('expense_month as month_key, SUM(planned_amount) as total')
+            ->whereNotNull('expense_month')
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->take(6)
+            ->pluck('total', 'month_key');
+        $expenseByStatus = ExpensePlan::selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $affordableExpenses = ExpensePlan::with('ledger')
+            ->whereIn('status', ['approved', 'partial'])
+            ->whereRaw('(planned_amount - paid_amount) <= ?', [max(0, $financeStats['bank_balance'])])
+            ->orderBy('due_date')
+            ->take(5)
+            ->get();
+
+        return view('admin.dashboard.index', compact(
+            'stats',
+            'recentActivity',
+            'recentItems',
+            'bankAccounts',
+            'ledgers',
+            'expenseLedgers',
+            'incomeLedgers',
+            'expensePlans',
+            'pendingPayments',
+            'cashflowPlans',
+            'financeStats',
+            'monthlyExpense',
+            'expenseByStatus',
+            'affordableExpenses'
+        ));
     }
 }

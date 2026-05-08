@@ -349,6 +349,43 @@
                     @endcan
                     @endcanany
 
+                    <!-- Finance Section -->
+                    @canany(['finance.ledgers.index', 'finance.bank.index', 'finance.cashflows.index', 'finance.expenses.index'])
+                    <li class="nav-header">Finance</li>
+                    @can('finance.ledgers.index')
+                    <li class="nav-item">
+                        <a href="{{ route('admin.finance.ledgers.index') }}" class="nav-link {{ request()->routeIs('admin.finance.ledgers.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-book"></i>
+                            <p>Ledgers</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('finance.bank.index')
+                    <li class="nav-item">
+                        <a href="{{ route('admin.finance.bank-accounts.index') }}" class="nav-link {{ request()->routeIs('admin.finance.bank-accounts.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-building-columns"></i>
+                            <p>Bank & Cash</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('finance.cashflows.index')
+                    <li class="nav-item">
+                        <a href="{{ route('admin.finance.cashflows.index') }}" class="nav-link {{ request()->routeIs('admin.finance.cashflows.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-arrow-trend-up"></i>
+                            <p>Cashflow Planning</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('finance.expenses.index')
+                    <li class="nav-item">
+                        <a href="{{ route('admin.finance.expenses.index') }}" class="nav-link {{ request()->routeIs('admin.finance.expenses.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-receipt"></i>
+                            <p>Expense Planning</p>
+                        </a>
+                    </li>
+                    @endcan
+                    @endcanany
+
                     <!-- Content Section -->
                     @can('items.index')
                     <li class="nav-header">Content</li>

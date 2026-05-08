@@ -24,20 +24,28 @@ class DatabaseSeeder extends Seeder
             'settings'    => ['Site Settings', 'fas fa-cog'],
             'activity'    => ['Activity Logs', 'fas fa-history'],
             'profile'     => ['Profile', 'fas fa-user'],
+            'finance.ledgers' => ['Finance Ledgers', 'fas fa-book'],
+            'finance.bank' => ['Bank Accounts', 'fas fa-building-columns'],
+            'finance.cashflows' => ['Cashflow Planning', 'fas fa-arrow-trend-up'],
+            'finance.expenses' => ['Expense Planning', 'fas fa-receipt'],
+            'finance.payments' => ['Expense Payments', 'fas fa-money-bill-wave'],
+            'finance' => ['Finance Approval', 'fas fa-check-double'],
         ];
 
         $actions = ['index', 'show', 'create', 'edit', 'delete'];
 
         // Create permissions
         foreach ($modules as $module => [$label, $icon]) {
-            foreach ($actions as $action) {
-                Permission::create([
-                    'name'        => "{$module}.{$action}",
-                    'guard_name'  => 'web',
-                    'group'       => $action,
-                    'module'      => $module,
-                    'description' => "{$action} access for " . $label,
-                ]);
+            $moduleActions = $module === 'finance' ? ['approve'] : $actions;
+            foreach ($moduleActions as $action) {
+                Permission::updateOrCreate(
+                    ['name' => "{$module}.{$action}", 'guard_name' => 'web'],
+                    [
+                        'group'       => $action,
+                        'module'      => $module,
+                        'description' => "{$action} access for " . $label,
+                    ]
+                );
             }
         }
 
@@ -89,7 +97,17 @@ class DatabaseSeeder extends Seeder
 
         // Assign permissions to roles
         // Admin gets all item + profile permissions (not role/permission management)
-        $adminPermissions = Permission::whereIn('module', ['items', 'profile', 'activity'])
+        $adminPermissions = Permission::whereIn('module', [
+                'items',
+                'profile',
+                'activity',
+                'finance.ledgers',
+                'finance.bank',
+                'finance.cashflows',
+                'finance.expenses',
+                'finance.payments',
+                'finance',
+            ])
             ->orWhereIn('name', ['users.index', 'users.show', 'users.create', 'users.edit', 'users.delete'])
             ->get();
         $admin->syncPermissions($adminPermissions);
@@ -100,6 +118,12 @@ class DatabaseSeeder extends Seeder
             'users.index', 'users.show',
             'profile.index', 'profile.edit',
             'activity.index',
+            'finance.ledgers.index', 'finance.ledgers.show', 'finance.ledgers.create', 'finance.ledgers.edit',
+            'finance.bank.index', 'finance.bank.show',
+            'finance.cashflows.index', 'finance.cashflows.show', 'finance.cashflows.create',
+            'finance.expenses.index', 'finance.expenses.show', 'finance.expenses.create', 'finance.expenses.edit',
+            'finance.payments.create',
+            'finance.approve',
         ])->get();
         $manager->syncPermissions($managerPermissions);
 
@@ -107,6 +131,8 @@ class DatabaseSeeder extends Seeder
         $editorPermissions = Permission::whereIn('name', [
             'items.index', 'items.show', 'items.create', 'items.edit',
             'profile.index', 'profile.edit',
+            'finance.ledgers.index', 'finance.bank.index', 'finance.cashflows.index', 'finance.expenses.index',
+            'finance.cashflows.create', 'finance.expenses.create', 'finance.payments.create',
         ])->get();
         $editor->syncPermissions($editorPermissions);
 

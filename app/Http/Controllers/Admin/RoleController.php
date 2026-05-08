@@ -5,13 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
     public function index()
     {
-        $roles = Role::all();
+        $roles = Role::with('permissions')->withCount('users')->get();
         return view('admin.roles.index', compact('roles'));
     }
 
@@ -24,7 +25,22 @@ class RoleController extends Controller
 
     public function store(Request $request)
     {
-        $role = Role::create($request->only('name','slug','description','color','icon'));
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80', 'unique:roles,name'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'color' => ['required', 'string', 'max:20'],
+            'icon' => ['nullable', 'string', 'max:80'],
+            'permissions' => ['array'],
+            'permissions.*' => ['integer', 'exists:permissions,id'],
+        ]);
+
+        $role = Role::create([
+            'name' => $data['name'],
+            'guard_name' => 'web',
+            'description' => $data['description'] ?? null,
+            'color' => $data['color'] ?? '#4f46e5',
+            'icon' => $data['icon'] ?? 'fas fa-shield-alt',
+        ]);
 
         // sync permissions
         if ($request->has('permissions')) {
@@ -33,6 +49,13 @@ class RoleController extends Controller
         }
 
         return redirect()->route('admin.roles.index');
+    }
+
+    public function show(Role $role)
+    {
+        $role->load(['permissions', 'users']);
+
+        return view('admin.roles.show', compact('role'));
     }
 
     public function edit(Role $role)
@@ -46,7 +69,21 @@ class RoleController extends Controller
 
     public function update(Request $request, Role $role)
     {
-        $role->update($request->only('name','slug','description','color','icon'));
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80', Rule::unique('roles', 'name')->ignore($role->id)],
+            'description' => ['nullable', 'string', 'max:255'],
+            'color' => ['required', 'string', 'max:20'],
+            'icon' => ['nullable', 'string', 'max:80'],
+            'permissions' => ['array'],
+            'permissions.*' => ['integer', 'exists:permissions,id'],
+        ]);
+
+        $role->update([
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'color' => $data['color'] ?? '#4f46e5',
+            'icon' => $data['icon'] ?? 'fas fa-shield-alt',
+        ]);
 
         // update permissions
         if ($request->has('permissions')) {
