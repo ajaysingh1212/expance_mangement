@@ -198,7 +198,7 @@
     <div class="left-panel">
         <div class="tag">
             <i class="fas fa-shield-alt"></i>
-            Enterprise RBAC Systems
+            Enterprise RBAC System
         </div>
         <h1>Control Access.<br><span>Secure Your</span><br>Application.</h1>
         <p>A powerful Role-Based Access Control system with fine-grained permissions, user management, and real-time activity tracking.</p>
