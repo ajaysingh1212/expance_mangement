@@ -34,11 +34,12 @@ class DashboardController extends Controller
             $stats['total_roles']   = Role::count();
             $stats['active_users']  = User::whereIn('id', $myUserIds)->where('is_active', true)->count();
         } else {
-            $stats['total_items']   = Item::where('created_by', $user->id)->count();
-            $stats['active_items']  = Item::where('created_by', $user->id)->where('status', 'active')->count();
-            $stats['draft_items']   = Item::where('created_by', $user->id)->where('status', 'draft')->count();
+            $stats['total_items']  = Item::where('created_by', $user->id)->count();
+            $stats['active_items'] = Item::where('created_by', $user->id)->where('status', 'active')->count();
+            $stats['draft_items']  = Item::where('created_by', $user->id)->where('status', 'draft')->count();
         }
 
+        // ── Recent Activity ───────────────────────────────────────────────
         $recentActivity = ActivityLog::with('user')
             ->when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
             ->latest()
@@ -51,62 +52,103 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        $bankAccounts = BankAccount::where('status', 'active')->latest()->get();
-        $ledgers = Ledger::where('status', 'active')->orderBy('name')->get();
+        // ── Finance core data ─────────────────────────────────────────────
+        $bankAccounts  = BankAccount::where('status', 'active')->orderBy('name')->get();
+        $ledgers       = Ledger::where('status', 'active')->orderBy('name')->get();
         $expenseLedgers = $ledgers->whereIn('type', ['expense', 'salary', 'vendor', 'other']);
-        $incomeLedgers = $ledgers->whereIn('type', ['income', 'customer', 'other']);
+        $incomeLedgers  = $ledgers->whereIn('type', ['income', 'customer', 'other']);
+
+        // ── Expense plans (priority-sorted, active statuses) ──────────────
         $expensePlans = ExpensePlan::with(['ledger', 'bankAccount'])
             ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
             ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END")
             ->orderBy('due_date')
-            ->take(12)
+            ->take(15)
             ->get();
+
+        // ── Salary ledger plans grouped per ledger (carry-forward view) ───
+        $salaryPlans = ExpensePlan::with('ledger')
+            ->whereHas('ledger', fn($q) => $q->where('type', 'salary'))
+            ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+            ->orderBy('expense_month')
+            ->get()
+            ->groupBy(fn($e) => $e->ledger?->name ?? 'Unknown');
+
+        // ── Payments pending approval ─────────────────────────────────────
         $pendingPayments = ExpensePayment::with(['expensePlan.ledger', 'bankAccount'])
             ->where('status', 'submitted')
             ->latest()
-            ->take(8)
+            ->take(10)
             ->get();
+
+        // ── Cashflow plans ────────────────────────────────────────────────
         $cashflowPlans = CashflowPlan::with(['ledger', 'bankAccount'])
             ->whereIn('status', ['submitted', 'draft', 'approved'])
             ->orderBy('expected_date')
-            ->take(8)
+            ->take(10)
             ->get();
 
+        // ── Finance KPIs ──────────────────────────────────────────────────
         $financeStats = [
-            'bank_balance' => BankAccount::sum('current_balance'),
-            'planned_income' => CashflowPlan::whereIn('status', ['draft', 'submitted', 'approved'])->sum('expected_amount'),
+            'bank_balance'    => BankAccount::where('status', 'active')->sum('current_balance'),
+            'planned_income'  => CashflowPlan::whereIn('status', ['draft', 'submitted', 'approved'])->sum('expected_amount'),
             'planned_expense' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
                 ->selectRaw('COALESCE(SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END), 0) as total')
                 ->value('total') ?? 0,
-            'outstanding' => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
+            'outstanding'     => ExpensePlan::whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
                 ->selectRaw('COALESCE(SUM((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount), 0) as total')
                 ->value('total') ?? 0,
-            'salary_due' => ExpensePlan::whereHas('ledger', fn ($q) => $q->where('type', 'salary'))
+            'salary_due'      => ExpensePlan::whereHas('ledger', fn($q) => $q->where('type', 'salary'))
                 ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
                 ->selectRaw('COALESCE(SUM((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount), 0) as total')
                 ->value('total') ?? 0,
+            'unreconciled_count' => BankTransaction::where('reconciliation_status', 'unreconciled')->count(),
         ];
 
-        $monthlyExpense = ExpensePlan::selectRaw('expense_month as month_key, SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) as total')
+        // ── Monthly expense chart (last 6 months) ────────────────────────
+        $monthlyExpense = ExpensePlan::selectRaw(
+                'expense_month as month_key, SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) as total'
+            )
             ->whereNotNull('expense_month')
             ->groupBy('month_key')
             ->orderBy('month_key')
             ->take(6)
             ->pluck('total', 'month_key');
+
+        // ── Monthly cashflow chart ────────────────────────────────────────
+        $monthlyCashflow = CashflowPlan::selectRaw(
+                "DATE_FORMAT(expected_date, '%Y-%m') as month_key, SUM(expected_amount) as total"
+            )
+            ->whereNotNull('expected_date')
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->take(6)
+            ->pluck('total', 'month_key');
+
+        // ── Expense by status (pie chart) ─────────────────────────────────
         $expenseByStatus = ExpensePlan::selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
+
+        // ── Expenses the current bank balance can cover ───────────────────
         $affordableExpenses = ExpensePlan::with('ledger')
             ->whereIn('status', ['approved', 'partial'])
-            ->whereRaw('((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount) <= ?', [max(0, $financeStats['bank_balance'])])
+            ->whereRaw(
+                '((CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) - paid_amount) <= ?',
+                [max(0, $financeStats['bank_balance'])]
+            )
             ->orderBy('due_date')
-            ->take(5)
+            ->take(6)
             ->get();
+
+        // ── Recent bank transactions ──────────────────────────────────────
         $recentTransactions = BankTransaction::with('bankAccount')
             ->latest('transaction_date')
             ->latest()
-            ->take(8)
+            ->take(10)
             ->get();
+
+        // ── Cashflows approved but not yet received ───────────────────────
         $awaitingReceipts = CashflowPlan::with(['ledger', 'bankAccount'])
             ->where('status', 'approved')
             ->orderBy('expected_date')
@@ -122,10 +164,12 @@ class DashboardController extends Controller
             'expenseLedgers',
             'incomeLedgers',
             'expensePlans',
+            'salaryPlans',
             'pendingPayments',
             'cashflowPlans',
             'financeStats',
             'monthlyExpense',
+            'monthlyCashflow',
             'expenseByStatus',
             'affordableExpenses',
             'recentTransactions',

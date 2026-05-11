@@ -393,7 +393,7 @@
                     @endcanany
 
                     <!-- Content Section -->
-                    @can('items.index')
+                    {{-- @can('items.index')
                     <li class="nav-header">Content</li>
                     <li class="nav-item">
                         <a href="{{ route('admin.items.index') }}" class="nav-link {{ request()->routeIs('admin.items.*') ? 'active' : '' }}">
@@ -401,7 +401,7 @@
                             <p>Items</p>
                         </a>
                     </li>
-                    @endcan
+                    @endcan --}}
 
                     <!-- Account Section -->
                     <li class="nav-header">Account</li>
