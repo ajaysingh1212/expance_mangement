@@ -229,7 +229,7 @@
             <div class="login-logo">
                 <i class="fas fa-shield-alt"></i>
             </div>
-            <h2>Welcome backs</h2>
+            <h2>Welcome Again</h2>
             <p class="subtitle">Sign in to your account to continue</p>
 
             @if($errors->any())
