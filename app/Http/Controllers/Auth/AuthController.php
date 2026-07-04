@@ -11,45 +11,70 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function loginForm()
-    {
-        if (Auth::check()) return redirect()->route('admin.dashboard');
-        return view('auth.login');
-    }
+    // ════════════════════════════════════════════════════════════════════
+    //  LOGIN
+    // ════════════════════════════════════════════════════════════════════
+
     public function showLogin()
     {
-        return view('auth.login'); // make sure this view exists
+        if (Auth::check()) {
+            // Already remembered — go to PIN check (middleware will decide)
+            return redirect()->route('admin.dashboard');
+        }
+        return view('auth.login');
     }
+
     public function login(Request $request)
     {
-        // dd($request->all());
         $credentials = $request->validate([
             'email'    => 'required|email',
             'password' => 'required',
         ]);
 
-        $user = User::where('email',$credentials['email'])->first();
+        $user = User::where('email', $credentials['email'])->first();
 
         if (!$user) {
-            return back()->withErrors(['email' => 'No account found with this email.'])->withInput();
+            return back()
+                ->withErrors(['email' => 'No account found with this email.'])
+                ->withInput();
         }
 
         if (!$user->is_active) {
-            return back()->withErrors(['email' => 'Your account is deactivated. Contact administrator.'])->withInput();
+            return back()
+                ->withErrors(['email' => 'Your account is deactivated. Contact administrator.'])
+                ->withInput();
         }
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        // ──────────────────────────────────────────────────────────────
+        //  ALWAYS pass remember: true — this sets the long-lived cookie
+        //  (90 days by default, configurable in config/session.php).
+        //  The PIN screen acts as the second-factor on browser reopen.
+        // ──────────────────────────────────────────────────────────────
+        if (Auth::attempt($credentials, remember: true)) {
             $request->session()->regenerate();
+
             $user->update([
                 'last_login_at' => now(),
                 'last_login_ip' => $request->ip(),
             ]);
+
+            // Mark PIN as verified for this fresh login session
+            // (User just proved identity with password — no need to ask PIN again now)
+            session(['pin_verified' => true]);
+
             ActivityLog::log('login', 'User logged in');
+
             return redirect()->intended(route('admin.dashboard'));
         }
 
-        return back()->withErrors(['password' => 'Incorrect password.'])->withInput();
+        return back()
+            ->withErrors(['password' => 'Incorrect password.'])
+            ->withInput();
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  LOGOUT
+    // ════════════════════════════════════════════════════════════════════
 
     public function logout(Request $request)
     {
@@ -59,6 +84,10 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
         return redirect()->route('login')->with('success', 'Logged out successfully.');
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  REGISTER
+    // ════════════════════════════════════════════════════════════════════
 
     public function showRegister()
     {
@@ -83,9 +112,13 @@ class AuthController extends Controller
 
         $user->assignRole('user');
 
-        Auth::login($user);
+        // Auto remember on register too
+        Auth::login($user, remember: true);
+        session(['pin_verified' => true]);
+
         ActivityLog::log('created', 'New user registered', $user);
 
-        return redirect()->route('admin.dashboard')->with('success', 'Welcome! Account created successfully.');
+        return redirect()->route('admin.dashboard')
+            ->with('success', 'Welcome! Account created. Set a PIN in your profile for quick access.');
     }
 }

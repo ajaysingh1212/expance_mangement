@@ -18,6 +18,7 @@ class ExpensePlan extends Model
         'tax_amount', 'discount_amount', 'net_amount', 'paid_amount',
         'due_date', 'expense_month', 'priority', 'status',
         'attachment_path', 'notes', 'approved_by', 'approved_at', 'created_by',
+        'updated_by',
     ];
 
     protected function casts(): array
@@ -29,6 +30,7 @@ class ExpensePlan extends Model
             'net_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
             'due_date' => 'date',
+            'expense_month' => 'date',
             'approved_at' => 'datetime',
         ];
     }
@@ -51,6 +53,16 @@ class ExpensePlan extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function editor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function getRemainingAmountAttribute(): float

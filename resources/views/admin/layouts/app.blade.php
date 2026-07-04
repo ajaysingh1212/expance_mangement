@@ -155,6 +155,10 @@
 
         /* Role badge colors */
         .role-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; color: #fff; }
+        .process-bot { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 9px; font-size:.72rem; font-weight:700; white-space:nowrap; }
+        .process-bot-wait { background:#eff6ff; color:#1d4ed8; }
+        .process-bot-ready { background:#fffbeb; color:#b45309; }
+        .process-bot-done { background:#ecfdf5; color:#047857; }
 
         /* Page header card */
         .page-header-card { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: 12px; padding: 24px; color: white; margin-bottom: 24px; }

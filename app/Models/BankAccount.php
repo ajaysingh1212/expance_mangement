@@ -14,7 +14,7 @@ class BankAccount extends Model
 
     protected $fillable = [
         'name', 'bank_name', 'account_number', 'type', 'opening_balance',
-        'current_balance', 'status', 'notes', 'created_by',
+        'opening_balance_date', 'current_balance', 'status', 'notes', 'created_by', 'updated_by',
     ];
 
     protected function casts(): array
@@ -22,12 +22,18 @@ class BankAccount extends Model
         return [
             'opening_balance' => 'decimal:2',
             'current_balance' => 'decimal:2',
+            'opening_balance_date' => 'date',
         ];
     }
 
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function editor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function cashflowPlans(): HasMany

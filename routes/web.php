@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\SiteSettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PinController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -23,8 +24,20 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 Route::get('/', fn() => redirect()->route('admin.dashboard'));
 
+// pin route('routeName', array)
+
+Route::middleware('auth')->group(function () {
+    Route::get('/pin',          [PinController::class, 'showPin'])->name('pin.show');
+    Route::post('/pin/verify',  [PinController::class, 'verifyPin'])->name('pin.verify');
+    Route::post('/pin/switch',  [PinController::class, 'switchAccount'])->name('pin.switch');
+});
+Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::post('/admin/profile/pin/setup',   [PinController::class, 'setupPin'])->name('profile.pin.setup');
+    Route::post('/admin/profile/pin/disable', [PinController::class, 'disablePin'])->name('profile.pin.disable');
+});
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user','require.pin'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -79,10 +92,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user'])->gro
         // Ledgers
         Route::get('/ledgers',  [FinanceController::class, 'ledgers'])->name('ledgers.index')->middleware('can:finance.ledgers.index');
         Route::post('/ledgers', [FinanceController::class, 'storeLedger'])->name('ledgers.store')->middleware('can:finance.ledgers.create');
+        Route::get('/ledgers/{ledger}', [FinanceController::class, 'showLedger'])->name('ledgers.show')->middleware('can:finance.ledgers.show');
+        Route::put('/ledgers/{ledger}', [FinanceController::class, 'updateLedger'])->name('ledgers.update')->middleware('can:finance.ledgers.edit');
+        Route::delete('/ledgers/{ledger}', [FinanceController::class, 'destroyLedger'])->name('ledgers.destroy')->middleware('can:finance.ledgers.delete');
 
         // Bank Accounts
         Route::get('/bank-accounts',   [FinanceController::class, 'bankAccounts'])->name('bank-accounts.index')->middleware('can:finance.bank.index');
         Route::post('/bank-accounts',  [FinanceController::class, 'storeBankAccount'])->name('bank-accounts.store')->middleware('can:finance.bank.create');
+        Route::get('/bank-accounts/{bankAccount}', [FinanceController::class, 'showBankAccount'])->name('bank-accounts.show')->middleware('can:finance.bank.show');
+        Route::put('/bank-accounts/{bankAccount}', [FinanceController::class, 'updateBankAccount'])->name('bank-accounts.update')->middleware('can:finance.bank.edit');
+        Route::delete('/bank-accounts/{bankAccount}', [FinanceController::class, 'destroyBankAccount'])->name('bank-accounts.destroy')->middleware('can:finance.bank.delete');
 
         // Statement
         Route::get('/statement',  [FinanceController::class, 'statement'])->name('statement.index')->middleware('can:finance.bank.index');
@@ -94,12 +113,19 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user'])->gro
         // Cashflows
         Route::get('/cashflows',                        [FinanceController::class, 'cashflows'])->name('cashflows.index')->middleware('can:finance.cashflows.index');
         Route::post('/cashflows',                       [FinanceController::class, 'storeCashflow'])->name('cashflows.store')->middleware('can:finance.cashflows.create');
+        Route::get('/cashflows/{cashflow}',             [FinanceController::class, 'showCashflow'])->name('cashflows.show')->middleware('can:finance.cashflows.show');
+        Route::put('/cashflows/{cashflow}',             [FinanceController::class, 'updateCashflow'])->name('cashflows.update')->middleware('can:finance.cashflows.edit');
+        Route::delete('/cashflows/{cashflow}',          [FinanceController::class, 'destroyCashflow'])->name('cashflows.destroy')->middleware('can:finance.cashflows.delete');
         Route::post('/cashflows/{cashflow}/approve',    [FinanceController::class, 'approveCashflow'])->name('cashflows.approve')->middleware('can:finance.approve');
         Route::post('/cashflows/{cashflow}/receive',    [FinanceController::class, 'receiveCashflow'])->name('cashflows.receive')->middleware('can:finance.approve');
 
         // Expenses
         Route::get('/expenses',                         [FinanceController::class, 'expenses'])->name('expenses.index')->middleware('can:finance.expenses.index');
         Route::post('/expenses',                        [FinanceController::class, 'storeExpense'])->name('expenses.store')->middleware('can:finance.expenses.create');
+        Route::get('/plans-report',                     [FinanceController::class, 'plansReport'])->name('plans.report')->middleware('can:finance.expenses.index');
+        Route::put('/expenses/{expense}',               [FinanceController::class, 'updateExpense'])->name('expenses.update')->middleware('can:finance.expenses.edit');
+        Route::get('/expenses/{expense}',               [FinanceController::class, 'showExpense'])->name('expenses.show')->middleware('can:finance.expenses.show');
+        Route::delete('/expenses/{expense}',            [FinanceController::class, 'destroyExpense'])->name('expenses.destroy')->middleware('can:finance.expenses.delete');
         Route::get('/expenses/{expense}/invoice',       [FinanceController::class, 'invoice'])->name('expenses.invoice')->middleware('can:finance.expenses.show');
         Route::post('/expenses/{expense}/approve',      [FinanceController::class, 'approveExpense'])->name('expenses.approve')->middleware('can:finance.approve');
         Route::post('/expenses/{expense}/defer',        [FinanceController::class, 'deferExpense'])->name('expenses.defer')->middleware('can:finance.expenses.edit');

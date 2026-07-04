@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'active.user' => \App\Http\Middleware\ActiveUser::class,
+            'require.pin' => \App\Http\Middleware\RequirePin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

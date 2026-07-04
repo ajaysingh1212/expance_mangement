@@ -43,7 +43,7 @@
                                 <img src="{{ $u->avatarUrl }}" class="user-avatar user-avatar-sm mr-2" alt="">
                                 <div>
                                     <div style="font-weight:600;font-size:0.875rem;color:#1e293b;">{{ $u->name }}</div>
-                                    <div style="font-size:0.75rem;color:#94a3b8;">@{{ $u->username }}</div>
+                                    <div style="font-size:0.75rem;color:#94a3b8;">{{ $u->username }}</div>
                                 </div>
                             </div>
                         </td>

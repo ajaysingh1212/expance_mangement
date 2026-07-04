@@ -24,7 +24,9 @@ class BankTransaction extends Model
         'reference_no',
         'category',
         'description',
-        'reconciliation_status',
+        'reconciliation_status',   // unreconciled | reconciled
+        'reconciled_by',           // user_id who toggled
+        'reconciled_at',           // timestamp of last toggle
         'created_by',
     ];
 
@@ -32,10 +34,13 @@ class BankTransaction extends Model
     {
         return [
             'transaction_date' => 'date',
-            'amount' => 'decimal:2',
-            'balance_after' => 'decimal:2',
+            'amount'           => 'decimal:2',
+            'balance_after'    => 'decimal:2',
+            'reconciled_at'    => 'datetime',
         ];
     }
+
+    // ── Relations ─────────────────────────────────────────────────
 
     public function bankAccount(): BelongsTo
     {
@@ -45,5 +50,17 @@ class BankTransaction extends Model
     public function transactionable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /** User who created / posted this transaction */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** User who last changed reconciliation status */
+    public function reconciledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reconciled_by');
     }
 }

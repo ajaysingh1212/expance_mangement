@@ -20,7 +20,7 @@ class User extends Authenticatable
         'phone', 'avatar', 'cover_photo', 'bio', 'designation', 'department',
         'date_of_birth', 'gender', 'address', 'city', 'state', 'country', 'postal_code',
         'facebook', 'twitter', 'linkedin', 'instagram', 'github', 'website',
-        'created_by', 'is_active', 'last_login_at', 'last_login_ip',
+        'created_by', 'is_active', 'last_login_at', 'last_login_ip','pin','pin_enabled',
     ];
 
     protected $hidden = ['password', 'remember_token'];

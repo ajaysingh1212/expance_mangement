@@ -85,6 +85,21 @@ body { background: var(--fc-bg) !important; }
     transition: box-shadow .2s;
 }
 .kpi-card:hover { box-shadow: var(--fc-shadow-lg); }
+.dash-animated { animation: riseIn .45s ease both; }
+.dash-animated::after {
+    content: '';
+    position: absolute;
+    inset: auto 18px 14px auto;
+    width: 56px;
+    height: 56px;
+    border: 1px solid rgba(15,23,42,.08);
+    border-radius: 14px;
+    transform: rotate(12deg);
+}
+@keyframes riseIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .kpi-card .kpi-icon {
     width: 48px; height: 48px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
@@ -114,6 +129,41 @@ body { background: var(--fc-bg) !important; }
 .fc-card-body { padding: 0; }
 .fc-card-body.padded { padding: 16px 20px; }
 .fc-card-footer { padding: 10px 20px; border-top: 1px solid var(--fc-border); background: #fafbfc; }
+.compact-pager {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+}
+.compact-pager .pager-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    color: #0f172a;
+    border: 1px solid var(--fc-border);
+    text-decoration: none;
+    transition: all .16s ease;
+}
+.compact-pager .pager-btn:not(.disabled):hover {
+    background: #0f172a;
+    color: #fff;
+    transform: translateY(-1px);
+}
+.compact-pager .pager-btn.disabled {
+    opacity: .4;
+    pointer-events: none;
+}
+.compact-pager .pager-meta {
+    font-size: .74rem;
+    color: var(--fc-muted);
+    font-weight: 700;
+}
 
 /* ── Data Table ── */
 .fin-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -145,6 +195,19 @@ body { background: var(--fc-bg) !important; }
 .s-received  { background: #dcfce7; color: #15803d; }
 .s-unreconciled { background: #fffbeb; color: #b45309; }
 .s-reconciled   { background: #ecfdf5; color: #047857; }
+.process-bot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.process-bot-wait { background:#eff6ff; color:#1d4ed8; }
+.process-bot-ready { background:#fffbeb; color:#b45309; }
+.process-bot-done { background:#ecfdf5; color:#047857; }
 
 /* ── Priority Dots ── */
 .p-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -218,6 +281,36 @@ body { background: var(--fc-bg) !important; }
 
 /* ── Charts ── */
 .chart-wrap { position: relative; }
+.chart-card-animated {
+    position: relative;
+    overflow: hidden;
+    animation: chartLift .55s ease both;
+}
+.chart-card-animated::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(120deg, transparent 0%, rgba(37,99,235,.05) 45%, transparent 70%);
+    transform: translateX(-100%);
+    animation: chartSheen 3.8s ease-in-out infinite;
+    pointer-events: none;
+}
+.chart-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.chart-filter .form-control { min-width: 135px; }
+@keyframes chartLift {
+    from { opacity: 0; transform: translateY(16px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes chartSheen {
+    0%, 58% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
 
 /* ── Modals ── */
 .fin-modal .modal-content {
@@ -342,8 +435,8 @@ body { background: var(--fc-bg) !important; }
      KPI ROW
 ══════════════════════════════════════════════════════════════ --}}
 <div class="row mb-4">
-    <div class="col-xl col-md-4 col-6 mb-3">
-        <div class="kpi-card">
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="kpi-card dash-animated">
             <div class="kpi-bar" style="background:#059669;"></div>
             <div class="kpi-icon" style="background:#dcfce7;color:#059669;"><i class="fas fa-wallet"></i></div>
             <div class="kpi-label">Bank Balance</div>
@@ -351,8 +444,8 @@ body { background: var(--fc-bg) !important; }
             <div class="kpi-sub">{{ $bankAccounts->count() }} active account{{ $bankAccounts->count() != 1 ? 's' : '' }}</div>
         </div>
     </div>
-    <div class="col-xl col-md-4 col-6 mb-3">
-        <div class="kpi-card">
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="kpi-card dash-animated" style="animation-delay:.08s;">
             <div class="kpi-bar" style="background:#0284c7;"></div>
             <div class="kpi-icon" style="background:#e0f2fe;color:#0284c7;"><i class="fas fa-arrow-trend-up"></i></div>
             <div class="kpi-label">Expected Inflow</div>
@@ -360,40 +453,13 @@ body { background: var(--fc-bg) !important; }
             <div class="kpi-sub">Planned &amp; approved cashflows</div>
         </div>
     </div>
-    <div class="col-xl col-md-4 col-6 mb-3">
-        <div class="kpi-card">
+    <div class="col-lg-4 col-md-12 mb-3">
+        <div class="kpi-card dash-animated" style="animation-delay:.16s;">
             <div class="kpi-bar" style="background:#d97706;"></div>
             <div class="kpi-icon" style="background:#fef3c7;color:#d97706;"><i class="fas fa-file-invoice"></i></div>
             <div class="kpi-label">Planned Expense</div>
             <div class="kpi-value">{{ $money($financeStats['planned_expense'] ?? 0) }}</div>
             <div class="kpi-sub">All active expense plans</div>
-        </div>
-    </div>
-    <div class="col-xl col-md-6 col-6 mb-3">
-        <div class="kpi-card">
-            <div class="kpi-bar" style="background:#dc2626;"></div>
-            <div class="kpi-icon" style="background:#fef2f2;color:#dc2626;"><i class="fas fa-hourglass-half"></i></div>
-            <div class="kpi-label">Outstanding</div>
-            <div class="kpi-value">{{ $money($financeStats['outstanding'] ?? 0) }}</div>
-            <div class="kpi-sub">Unpaid across all plans</div>
-        </div>
-    </div>
-    <div class="col-xl col-md-6 col-6 mb-3">
-        <div class="kpi-card">
-            <div class="kpi-bar" style="background:#7c3aed;"></div>
-            <div class="kpi-icon" style="background:#f3e8ff;color:#7c3aed;"><i class="fas fa-users"></i></div>
-            <div class="kpi-label">Salary Due</div>
-            <div class="kpi-value">{{ $money($financeStats['salary_due'] ?? 0) }}</div>
-            @if(($financeStats['unreconciled_count'] ?? 0) > 0)
-            <div class="kpi-sub">
-                <span class="s-badge s-unreconciled pulse-badge">
-                    <i class="fas fa-circle-exclamation"></i>
-                    {{ $financeStats['unreconciled_count'] }} unreconciled
-                </span>
-            </div>
-            @else
-            <div class="kpi-sub" style="color:#059669;"><i class="fas fa-check-circle mr-1"></i>All reconciled</div>
-            @endif
         </div>
     </div>
 </div>
@@ -413,18 +479,51 @@ body { background: var(--fc-bg) !important; }
                     <span class="badge-count">{{ $expensePlans->count() }}</span>
                 </h3>
                 @can('finance.expenses.index')
-                <a href="{{ route('admin.finance.expenses.index') }}" class="btn btn-sm" style="font-size:.75rem;background:#f1f5f9;color:#374151;border-radius:7px;font-weight:600;">
-                    View All <i class="fas fa-arrow-right ml-1"></i>
-                </a>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <a href="{{ route('admin.finance.plans.report') }}" class="btn btn-sm" style="font-size:.75rem;background:#0f172a;color:#fff;border-radius:7px;font-weight:600;">
+                        Advanced Filters <i class="fas fa-filter ml-1"></i>
+                    </a>
+                    <a href="{{ route('admin.finance.expenses.index') }}" class="btn btn-sm" style="font-size:.75rem;background:#f1f5f9;color:#374151;border-radius:7px;font-weight:600;">
+                        View All <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
                 @endcan
             </div>
             <div class="fc-card-body">
+                <form method="GET" class="p-3" style="border-bottom:1px solid var(--fc-border);background:#f8fafc;">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <select name="dash_role" class="form-control form-control-sm">
+                                <option value="">All Roles</option>
+                                @foreach($roles ?? [] as $role)
+                                <option value="{{ $role }}" @selected(request('dash_role') === $role)>{{ $role }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <select name="dash_user_id" class="form-control form-control-sm">
+                                <option value="">All Users</option>
+                                @foreach($users ?? [] as $u)
+                                <option value="{{ $u->id }}" @selected((string) request('dash_user_id') === (string) $u->id)>{{ $u->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2"><input type="date" name="dash_from" value="{{ request('dash_from') }}" class="form-control form-control-sm"></div>
+                        <div class="col-md-2 mb-2"><input type="date" name="dash_to" value="{{ request('dash_to') }}" class="form-control form-control-sm"></div>
+                        <div class="col-md-2 mb-2" style="display:flex;gap:6px;">
+                            <button class="btn btn-sm btn-primary" style="flex:1;"><i class="fas fa-search"></i></button>
+                            <a href="{{ route('admin.dashboard') }}" class="btn btn-sm btn-light"><i class="fas fa-rotate-left"></i></a>
+                        </div>
+                    </div>
+                </form>
                 <div class="table-responsive">
                     <table class="fin-table">
                         <thead>
                             <tr>
                                 <th>Expense</th>
-                                <th>Month / Due</th>
+                                <th>User / Role</th>
+                                <th>Expense Date / Due</th>
+                                <th>Next Step</th>
                                 <th>Net</th>
                                 <th>Paid</th>
                                 <th>Balance</th>
@@ -445,9 +544,14 @@ body { background: var(--fc-bg) !important; }
                                 </div>
                             </td>
                             <td>
-                                <div style="font-size:.8rem;font-weight:600;">{{ $expense->expense_month ?: '—' }}</div>
+                                <div style="font-size:.82rem;font-weight:600;">{{ $expense->creator?->name ?? '-' }}</div>
+                                <div class="td-sub">{{ $expense->creator?->roles?->pluck('name')->implode(', ') ?: 'No role' }}</div>
+                            </td>
+                            <td>
+                                <div style="font-size:.8rem;font-weight:600;">{{ $expense->expense_month?->format('d M Y') ?: '---' }}</div>
                                 <div class="td-sub">{{ $expense->due_date?->format('d M Y') ?: 'No due date' }}</div>
                             </td>
+                            <td>@include('admin.finance.partials.process-bot', ['status' => $expense->status, 'type' => 'expense'])</td>
                             <td class="td-amount">{{ $money($expense->net_amount ?: $expense->planned_amount) }}</td>
                             <td class="td-amount" style="color:var(--fc-success);">{{ $money($expense->paid_amount) }}</td>
                             <td class="td-amount" style="color:{{ $expense->remaining_amount > 0 ? 'var(--fc-danger)' : 'var(--fc-success)' }};">
@@ -493,7 +597,7 @@ body { background: var(--fc-bg) !important; }
                             </td>
                         </tr>
                         @empty
-                        <tr><td colspan="7"><div class="empty-state"><i class="fas fa-receipt"></i><p>No active expense plans.</p></div></td></tr>
+                        <tr><td colspan="9"><div class="empty-state"><i class="fas fa-receipt"></i><p>No active expense plans.</p></div></td></tr>
                         @endforelse
                         </tbody>
                     </table>
@@ -690,6 +794,7 @@ body { background: var(--fc-bg) !important; }
                 @empty
                 <div class="empty-state"><i class="fas fa-inbox"></i><p>No approved inflows awaiting confirmation.</p></div>
                 @endforelse
+                @include('admin.finance.partials.compact-pager', ['paginator' => $awaitingReceipts])
             </div>
         </div>
     </div>
@@ -698,14 +803,14 @@ body { background: var(--fc-bg) !important; }
     <div class="col-xl-4 mb-4">
         <div class="fc-card h-100">
             <div class="fc-card-header">
-                <h3><i class="fas fa-check-double" style="color:#d97706;"></i> Payment Approvals
-                    @if($pendingPayments->count() > 0)
-                    <span class="badge-count">{{ $pendingPayments->count() }}</span>
+                <h3><i class="fas fa-money-check-alt" style="color:#d97706;"></i> Recent Payments
+                    @if($recentPayments->count() > 0)
+                    <span class="badge-count">{{ $recentPayments->count() }}</span>
                     @endif
                 </h3>
             </div>
             <div class="fc-card-body padded">
-                @forelse($pendingPayments as $payment)
+                @forelse($recentPayments as $payment)
                 <div class="cf-row">
                     <div class="cf-dot cf-out"><i class="fas fa-money-bill-wave"></i></div>
                     <div style="flex:1;">
@@ -714,16 +819,13 @@ body { background: var(--fc-bg) !important; }
                     </div>
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                         <span style="font-weight:700;font-size:.9rem;color:var(--fc-danger);">{{ $money($payment->amount) }}</span>
-                        @can('finance.approve')
-                        <form action="{{ route('admin.finance.payments.approve', $payment) }}" method="POST">@csrf
-                            <button type="submit" class="act-btn act-approve" title="Approve payment"><i class="fas fa-check"></i></button>
-                        </form>
-                        @endcan
+                        <span class="s-badge s-paid">Done</span>
                     </div>
                 </div>
                 @empty
-                <div class="empty-state"><i class="fas fa-check-circle"></i><p>No payments pending approval.</p></div>
+                <div class="empty-state"><i class="fas fa-check-circle"></i><p>No payments posted yet.</p></div>
                 @endforelse
+                @include('admin.finance.partials.compact-pager', ['paginator' => $recentPayments])
             </div>
         </div>
     </div>
@@ -759,6 +861,7 @@ body { background: var(--fc-bg) !important; }
                 @empty
                 <div class="empty-state"><i class="fas fa-file-lines"></i><p>No transactions posted yet.</p></div>
                 @endforelse
+                @include('admin.finance.partials.compact-pager', ['paginator' => $recentTransactions])
             </div>
         </div>
     </div>
@@ -767,22 +870,46 @@ body { background: var(--fc-bg) !important; }
 {{-- ══════════════════════════════════════════════════════════════
      CHARTS ROW
 ══════════════════════════════════════════════════════════════ --}}
+<form method="GET" class="fc-card mb-3 chart-card-animated">
+    <div class="fc-card-header">
+        <h3><i class="fas fa-sliders" style="color:#2563eb;"></i> Chart Filters</h3>
+        <a href="{{ route('admin.dashboard') }}" class="btn btn-sm btn-light" style="border-radius:7px;font-weight:600;">
+            <i class="fas fa-rotate-left"></i>
+        </a>
+    </div>
+    <div class="fc-card-body padded">
+        <div class="chart-filter">
+            <input type="date" name="chart_from" class="form-control form-control-sm" value="{{ request('chart_from') }}">
+            <input type="date" name="chart_to" class="form-control form-control-sm" value="{{ request('chart_to') }}">
+            <select name="chart_status" class="form-control form-control-sm">
+                <option value="">All Status</option>
+                @foreach(['draft','submitted','approved','partial','paid','received','deferred','rejected','cancelled'] as $status)
+                <option value="{{ $status }}" @selected(request('chart_status') === $status)>{{ ucfirst($status) }}</option>
+                @endforeach
+            </select>
+            <button class="btn btn-sm btn-primary" style="border-radius:7px;font-weight:700;">
+                <i class="fas fa-wand-magic-sparkles mr-1"></i> Apply
+            </button>
+        </div>
+    </div>
+</form>
+
 <div class="row mb-4">
     <div class="col-xl-4 mb-4">
-        <div class="fc-card">
+        <div class="fc-card chart-card-animated">
             <div class="fc-card-header"><h3><i class="fas fa-chart-pie" style="color:#0284c7;"></i> Expense by Status</h3></div>
             <div class="fc-card-body padded">
-                <div class="chart-wrap" style="height:220px;">
+                <div class="chart-wrap" style="height:240px;">
                     <canvas id="statusChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-xl-8 mb-4">
-        <div class="fc-card">
+        <div class="fc-card chart-card-animated" style="animation-delay:.1s;">
             <div class="fc-card-header"><h3><i class="fas fa-chart-area" style="color:#059669;"></i> Monthly Expense vs Cashflow (6 Months)</h3></div>
             <div class="fc-card-body padded">
-                <div class="chart-wrap" style="height:220px;">
+                <div class="chart-wrap" style="height:240px;">
                     <canvas id="trendChart"></canvas>
                 </div>
             </div>
@@ -822,23 +949,33 @@ const pieColors = {
     paid:      '#16a34a',
     deferred:  '#7c3aed',
     rejected:  '#dc2626',
+    cancelled: '#475569',
+    received:  '#14b8a6',
 };
-new Chart(document.getElementById('statusChart'), {
+const statusChart = new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
         labels: statusLabels,
         datasets: [{
             data: statusValues,
             backgroundColor: statusLabels.map(l => pieColors[l] || '#94a3b8'),
-            borderWidth: 2,
+            borderWidth: 4,
             borderColor: '#ffffff',
-            hoverOffset: 6,
+            hoverOffset: 14,
+            spacing: 3,
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '65%',
+        cutout: '68%',
+        rotation: -90,
+        animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 1400,
+            easing: 'easeOutQuart',
+        },
         plugins: {
             legend: {
                 position: 'bottom',
@@ -852,12 +989,17 @@ new Chart(document.getElementById('statusChart'), {
         },
     }
 });
+setInterval(() => {
+    if (!statusChart.data.datasets[0].data.length) return;
+    statusChart.options.rotation = (statusChart.options.rotation || 0) + 1;
+    statusChart.update('none');
+}, 80);
 
 // ── Trend Chart ────────────────────────────────────────────────
 const expMap  = Object.fromEntries(expenseLabels.map((l,i)  => [l, expenseValues[i]]));
 const cashMap = Object.fromEntries(cashflowLabels.map((l,i) => [l, cashflowValues[i]]));
 
-new Chart(document.getElementById('trendChart'), {
+const trendChart = new Chart(document.getElementById('trendChart'), {
     type: 'line',
     data: {
         labels: allMonthLabels,
@@ -872,8 +1014,12 @@ new Chart(document.getElementById('trendChart'), {
                     g.addColorStop(1, 'rgba(220,38,38,.01)');
                     return g;
                 },
-                fill: true, tension: .42, borderWidth: 2.5,
-                pointBackgroundColor: '#dc2626', pointRadius: 4, pointHoverRadius: 6,
+                fill: true, tension: .48, borderWidth: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#dc2626',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
             },
             {
                 label: 'Expected Cashflow',
@@ -885,14 +1031,22 @@ new Chart(document.getElementById('trendChart'), {
                     g.addColorStop(1, 'rgba(5,150,105,.01)');
                     return g;
                 },
-                fill: true, tension: .42, borderWidth: 2.5,
-                pointBackgroundColor: '#059669', pointRadius: 4, pointHoverRadius: 6,
+                fill: true, tension: .48, borderWidth: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#059669',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
             }
         ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+            duration: 1600,
+            easing: 'easeOutQuart',
+        },
         interaction: { mode: 'index', intersect: false },
         plugins: {
             legend: { position: 'bottom', labels: { font: { size: 11 }, usePointStyle: true, padding: 16 } },
@@ -920,5 +1074,16 @@ new Chart(document.getElementById('trendChart'), {
         }
     }
 });
+let waveTick = 0;
+setInterval(() => {
+    waveTick += 0.08;
+    trendChart.data.datasets.forEach((dataset, datasetIndex) => {
+        dataset.tension = 0.42 + Math.sin(waveTick + datasetIndex) * 0.06;
+    });
+    trendChart.update('none');
+}, 120);
 </script>
 @endpush
+
+
+

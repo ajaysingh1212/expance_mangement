@@ -115,6 +115,10 @@
                         </div>
                     </div>
                     <div class="col-md-6 form-group">
+                        <label>Opening Balance Date</label>
+                        <input name="opening_balance_date" type="date" class="form-control" value="{{ now()->toDateString() }}">
+                    </div>
+                    <div class="col-md-6 form-group">
                         <label>Notes</label>
                         <input name="notes" class="form-control" placeholder="Optional">
                     </div>
@@ -144,22 +148,25 @@
             </div>
             <div class="modal-body">
                 <div class="row">
-                    <div class="col-md-8 form-group">
-                        <label>Title / Description *</label>
-                        <input name="title" class="form-control" required placeholder="e.g. Client payment - Project Alpha Invoice #12">
-                    </div>
-                    <div class="col-md-4 form-group">
-                        <label>Payer Name</label>
-                        <input name="payer_name" class="form-control" placeholder="Who is paying?">
-                    </div>
                     <div class="col-md-6 form-group">
                         <label>Source Ledger</label>
                         <select name="ledger_id" class="form-control">
                             <option value="">— Direct / Other —</option>
-                            @foreach($incomeLedgers ?? [] as $ledger)
+                            @foreach(($ledgers ?? $incomeLedgers ?? []) as $ledger)
                             <option value="{{ $ledger->id }}">{{ $ledger->name }} ({{ ucfirst($ledger->type) }})</option>
                             @endforeach
                         </select>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-toggle="modal" data-target="#ledgerModal">
+                            <i class="fas fa-plus"></i> New Ledger
+                        </button>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label>Title / Description *</label>
+                        <input name="title" class="form-control" required placeholder="e.g. Client payment - Project Alpha Invoice #12">
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label>Payer Name</label>
+                        <input name="payer_name" class="form-control" placeholder="Who is paying?">
                     </div>
                     <div class="col-md-6 form-group">
                         <label>Destination Bank Account *</label>
@@ -231,10 +238,6 @@
                 <div class="section-divider">Basic Information</div>
                 <div class="row">
                     <div class="col-md-6 form-group">
-                        <label>Title / Description *</label>
-                        <input name="title" class="form-control" required placeholder="e.g. April Salary – Raju Kumar, Office Rent May">
-                    </div>
-                    <div class="col-md-6 form-group">
                         <label>Ledger / Employee *</label>
                         <select name="ledger_id" class="form-control ledger-amount-source" required>
                             <option value="">— Select Ledger —</option>
@@ -244,6 +247,13 @@
                             </option>
                             @endforeach
                         </select>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-toggle="modal" data-target="#ledgerModal">
+                            <i class="fas fa-plus"></i> New Ledger
+                        </button>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label>Title / Description *</label>
+                        <input name="title" class="form-control" required placeholder="e.g. April Salary - Raju Kumar, Office Rent May">
                     </div>
                     <div class="col-md-6 form-group">
                         <label>Vendor / Employee Name</label>
@@ -303,8 +313,8 @@
                 <div class="section-divider">Schedule &amp; Bank</div>
                 <div class="row">
                     <div class="col-md-4 form-group">
-                        <label>Expense Month</label>
-                        <input name="expense_month" type="month" class="form-control" value="{{ now()->format('Y-m') }}">
+                        <label>Expense Date</label>
+                        <input name="expense_month" type="date" class="form-control" value="{{ now()->toDateString() }}">
                     </div>
                     <div class="col-md-4 form-group">
                         <label>Due Date</label>
@@ -428,6 +438,20 @@ function fmtMoney(v) {
     return 'Rs ' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+$(document).on('show.bs.modal', '.fin-modal', function() {
+    const zIndex = 1050 + (10 * $('.modal.show').length);
+    $(this).css('z-index', zIndex);
+    setTimeout(() => {
+        $('.modal-backdrop').not('.modal-stack').last().css('z-index', zIndex - 1).addClass('modal-stack');
+    }, 0);
+});
+
+$(document).on('hidden.bs.modal', '.fin-modal', function() {
+    if ($('.modal.show').length) {
+        $('body').addClass('modal-open');
+    }
+});
+
 // ── Expense Net Calculator ─────────────────────────────────────
 document.querySelectorAll('.calc-net').forEach(input => {
     input.addEventListener('input', () => {
@@ -514,3 +538,4 @@ document.querySelectorAll('.attachment-input').forEach(input => {
 });
 </script>
 @endpush
+

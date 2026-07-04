@@ -31,6 +31,7 @@
                 <a class="list-group-item list-group-item-action" data-toggle="tab" href="#tab-password">
                     <i class="fas fa-lock mr-2 text-warning"></i> Change Password
                 </a>
+
             </div>
         </div>
     </div>
@@ -43,6 +44,7 @@
             <div class="tab-pane fade show active" id="tab-personal">
                 <div class="card">
                     <div class="card-header"><h3><i class="fas fa-user mr-2 text-primary"></i>Personal Information</h3></div>
+                    @include('admin.profile.partials.pin-setup')
                     <form action="{{ route('admin.profile.update') }}" method="POST" enctype="multipart/form-data">
                         @csrf @method('PUT')
                         <div class="card-body">

@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\UserNotification;
 use Spatie\Permission\Models\Role;
 
+
 class DashboardController extends Controller
 {
     public function index()
@@ -57,9 +58,16 @@ class DashboardController extends Controller
         $ledgers       = Ledger::where('status', 'active')->orderBy('name')->get();
         $expenseLedgers = $ledgers->whereIn('type', ['expense', 'salary', 'vendor', 'other']);
         $incomeLedgers  = $ledgers->whereIn('type', ['income', 'customer', 'other']);
+        $chartFrom = request()->date('chart_from');
+        $chartTo = request()->date('chart_to');
+        $chartStatus = request('chart_status');
 
         // ── Expense plans (priority-sorted, active statuses) ──────────────
-        $expensePlans = ExpensePlan::with(['ledger', 'bankAccount'])
+        $expensePlans = ExpensePlan::with(['ledger', 'bankAccount', 'creator.roles'])
+            ->when(request()->filled('dash_role'), fn($q) => $q->whereHas('creator.roles', fn($r) => $r->where('name', request('dash_role'))))
+            ->when(request()->filled('dash_user_id'), fn($q) => $q->where('created_by', request()->integer('dash_user_id')))
+            ->when(request()->filled('dash_from'), fn($q) => $q->whereDate('expense_month', '>=', request()->date('dash_from')))
+            ->when(request()->filled('dash_to'), fn($q) => $q->whereDate('expense_month', '<=', request()->date('dash_to')))
             ->whereIn('status', ['submitted', 'approved', 'partial', 'deferred'])
             ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END")
             ->orderBy('due_date')
@@ -75,18 +83,18 @@ class DashboardController extends Controller
             ->groupBy(fn($e) => $e->ledger?->name ?? 'Unknown');
 
         // ── Payments pending approval ─────────────────────────────────────
-        $pendingPayments = ExpensePayment::with(['expensePlan.ledger', 'bankAccount'])
-            ->where('status', 'submitted')
+        $recentPayments = ExpensePayment::with(['expensePlan.ledger', 'bankAccount'])
+            ->where('status', 'approved')
             ->latest()
-            ->take(10)
-            ->get();
+            ->paginate(4, ['*'], 'payments_page')
+            ->withQueryString();
 
         // ── Cashflow plans ────────────────────────────────────────────────
         $cashflowPlans = CashflowPlan::with(['ledger', 'bankAccount'])
             ->whereIn('status', ['submitted', 'draft', 'approved'])
             ->orderBy('expected_date')
-            ->take(10)
-            ->get();
+            ->paginate(4, ['*'], 'cashflows_page')
+            ->withQueryString();
 
         // ── Finance KPIs ──────────────────────────────────────────────────
         $financeStats = [
@@ -107,9 +115,12 @@ class DashboardController extends Controller
 
         // ── Monthly expense chart (last 6 months) ────────────────────────
         $monthlyExpense = ExpensePlan::selectRaw(
-                'expense_month as month_key, SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) as total'
+                "DATE_FORMAT(expense_month, '%Y-%m') as month_key, SUM(CASE WHEN net_amount > 0 THEN net_amount ELSE planned_amount END) as total"
             )
             ->whereNotNull('expense_month')
+            ->when($chartFrom, fn($q) => $q->whereDate('expense_month', '>=', $chartFrom))
+            ->when($chartTo, fn($q) => $q->whereDate('expense_month', '<=', $chartTo))
+            ->when($chartStatus, fn($q) => $q->where('status', $chartStatus))
             ->groupBy('month_key')
             ->orderBy('month_key')
             ->take(6)
@@ -120,6 +131,9 @@ class DashboardController extends Controller
                 "DATE_FORMAT(expected_date, '%Y-%m') as month_key, SUM(expected_amount) as total"
             )
             ->whereNotNull('expected_date')
+            ->when($chartFrom, fn($q) => $q->whereDate('expected_date', '>=', $chartFrom))
+            ->when($chartTo, fn($q) => $q->whereDate('expected_date', '<=', $chartTo))
+            ->when($chartStatus, fn($q) => $q->where('status', $chartStatus))
             ->groupBy('month_key')
             ->orderBy('month_key')
             ->take(6)
@@ -127,6 +141,9 @@ class DashboardController extends Controller
 
         // ── Expense by status (pie chart) ─────────────────────────────────
         $expenseByStatus = ExpensePlan::selectRaw('status, COUNT(*) as total')
+            ->when($chartFrom, fn($q) => $q->whereDate('expense_month', '>=', $chartFrom))
+            ->when($chartTo, fn($q) => $q->whereDate('expense_month', '<=', $chartTo))
+            ->when($chartStatus, fn($q) => $q->where('status', $chartStatus))
             ->groupBy('status')
             ->pluck('total', 'status');
 
@@ -145,15 +162,18 @@ class DashboardController extends Controller
         $recentTransactions = BankTransaction::with('bankAccount')
             ->latest('transaction_date')
             ->latest()
-            ->take(10)
-            ->get();
+            ->paginate(4, ['*'], 'transactions_page')
+            ->withQueryString();
 
         // ── Cashflows approved but not yet received ───────────────────────
         $awaitingReceipts = CashflowPlan::with(['ledger', 'bankAccount'])
             ->where('status', 'approved')
             ->orderBy('expected_date')
-            ->take(8)
-            ->get();
+            ->paginate(3, ['*'], 'receipts_page')
+            ->withQueryString();
+
+        $users = User::orderBy('name')->get();
+        $roles = Role::orderBy('name')->pluck('name');
 
         return view('admin.dashboard.index', compact(
             'stats',
@@ -165,7 +185,7 @@ class DashboardController extends Controller
             'incomeLedgers',
             'expensePlans',
             'salaryPlans',
-            'pendingPayments',
+            'recentPayments',
             'cashflowPlans',
             'financeStats',
             'monthlyExpense',
@@ -173,7 +193,9 @@ class DashboardController extends Controller
             'expenseByStatus',
             'affordableExpenses',
             'recentTransactions',
-            'awaitingReceipts'
+            'awaitingReceipts',
+            'users',
+            'roles'
         ));
     }
 }

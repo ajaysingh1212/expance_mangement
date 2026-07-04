@@ -15,7 +15,7 @@ class CashflowPlan extends Model
         'ledger_id', 'bank_account_id', 'title', 'expected_amount',
         'receipt_no', 'payer_name', 'reference_no', 'expected_date',
         'received_date', 'status', 'attachment_path', 'notes',
-        'approved_by', 'approved_at', 'created_by',
+        'approved_by', 'approved_at', 'created_by', 'updated_by',
     ];
 
     protected function casts(): array
@@ -41,6 +41,16 @@ class CashflowPlan extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function editor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function transaction()
